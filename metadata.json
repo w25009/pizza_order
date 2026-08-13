@@ -1,0 +1,6 @@
+{
+  "name": "Pizza Order System & Store Dashboard",
+  "description": "Real-time pizza order management system with live dashboard, inventory controls, customer profiles, owner analytics with CSV export, AI summary generation, and role-based access.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
