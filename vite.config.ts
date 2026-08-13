@@ -5,6 +5,9 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // Relative asset paths let the production bundle run from a GitHub Pages
+    // project URL such as https://username.github.io/pizza_order/.
+    base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
