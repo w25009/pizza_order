@@ -46,17 +46,18 @@ function AppContent() {
     setIsAuthenticated(true);
     setIsAuthOpen(false);
   };
+  
 
   if (!isAuthenticated) {
-    return (
-      <AuthModal
-        isOpen={true}
-        onClose={() => undefined}
-        onAuthenticated={completeAuthentication}
-        requireAuthentication={true}
-      />
-    );
-  }
+  return (
+    <AuthModal
+      isOpen={true}
+      onClose={() => undefined}
+      onAuthenticated={completeAuthentication}
+      requireAuthentication={true}
+    />
+  );
+}
 
   // Filtered Pizzas
   const filteredPizzas = pizzas.filter((pizza) => {
