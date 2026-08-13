@@ -10,6 +10,7 @@ import {
 } from '../types';
 import { INITIAL_PIZZAS, INITIAL_ORDERS, INITIAL_USERS } from '../data/initialData';
 import { playOrderNotificationSound } from '../utils/audio';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 interface AppContextType {
   language: Language;
@@ -20,8 +21,8 @@ interface AppContextType {
   setCurrentUser: (user: User) => void;
   switchRole: (role: 'customer' | 'admin') => void;
   registeredUsers: User[];
-  loginUser: (email: string) => { success: boolean; message?: string };
-  registerUser: (userData: Omit<User, 'id' | 'loyaltyPoints'>) => { success: boolean; user?: User; message?: string };
+  loginUser: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  registerUser: (userData: Omit<User, 'id' | 'loyaltyPoints'>, password: string) => Promise<{ success: boolean; user?: User; message?: string }>;
   logoutUser: () => void;
   
   // Pizza CRUD
@@ -133,48 +134,61 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('pizzeria_user', JSON.stringify(user));
   };
 
-  const loginUser = (email: string) => {
+  const loginUser = async (email: string, password: string) => {
+    if (!isSupabaseConfigured || !supabase) {
+      return { success: false, message: 'Database connection is not configured yet.' };
+    }
     const normalized = email.trim().toLowerCase();
-    const found = registeredUsers.find((u) => u.email.trim().toLowerCase() === normalized);
-    if (found) {
-      setCurrentUser(found);
-      localStorage.setItem('pizzeria_user', JSON.stringify(found));
-      return { success: true };
+    const { data, error } = await supabase.auth.signInWithPassword({ email: normalized, password });
+    if (error || !data.user) {
+      return { success: false, message: error?.message || 'Login failed. Please try again.' };
     }
-    // Check initial demo users by role fallback or email
-    const demoUser = Object.values(INITIAL_USERS).find(
-      (u) => u.email.trim().toLowerCase() === normalized
-    );
-    if (demoUser) {
-      setCurrentUser(demoUser);
-      localStorage.setItem('pizzeria_user', JSON.stringify(demoUser));
-      return { success: true };
-    }
-    return { success: false, message: 'Account not found with this email. Please sign up.' };
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+    const user: User = {
+      id: data.user.id,
+      name: profile?.name || data.user.email?.split('@')[0] || 'Customer',
+      email: data.user.email || normalized,
+      role: profile?.role === 'admin' ? 'admin' : 'customer',
+      phone: profile?.phone || '',
+      address: profile?.address || '',
+      avatar: profile?.avatar || undefined,
+      loyaltyPoints: profile?.loyalty_points || 0
+    };
+    setCurrentUser(user);
+    localStorage.setItem('pizzeria_user', JSON.stringify(user));
+    return { success: true };
   };
 
-  const registerUser = (userData: Omit<User, 'id' | 'loyaltyPoints'>) => {
-    const existing = registeredUsers.some(
-      (u) => u.email.trim().toLowerCase() === userData.email.trim().toLowerCase()
-    );
-    if (existing) {
-      return { success: false, message: 'An account with this email already exists. Please log in.' };
+  const registerUser = async (userData: Omit<User, 'id' | 'loyaltyPoints'>, password: string) => {
+    if (!isSupabaseConfigured || !supabase) {
+      return { success: false, message: 'Database connection is not configured yet.' };
     }
-
-    const newUser: User = {
-      ...userData,
-      id: 'usr-' + Date.now(),
-      loyaltyPoints: 50 // Welcome bonus points
-    };
-
-    setRegisteredUsers((prev) => [...prev, newUser]);
+    const { data, error } = await supabase.auth.signUp({
+      email: userData.email.trim().toLowerCase(),
+      password,
+      options: {
+        data: {
+          name: userData.name,
+          phone: userData.phone,
+          address: userData.address,
+          avatar: userData.avatar
+        }
+      }
+    });
+    if (error || !data.user) return { success: false, message: error?.message || 'Could not create account.' };
+    if (!data.session) {
+      return { success: false, message: 'Check your email to confirm your account, then sign in.' };
+    }
+    const newUser: User = { ...userData, id: data.user.id, role: 'customer', loyaltyPoints: 50 };
     setCurrentUser(newUser);
     localStorage.setItem('pizzeria_user', JSON.stringify(newUser));
     return { success: true, user: newUser };
   };
 
   const logoutUser = () => {
-    // Reset to customer demo user
+    void supabase?.auth.signOut();
+    localStorage.removeItem('pizzeria_authenticated');
+    // Reset local view; a refresh returns the visitor to the sign-in page.
     setCurrentUser(INITIAL_USERS.customer);
     localStorage.setItem('pizzeria_user', JSON.stringify(INITIAL_USERS.customer));
   };

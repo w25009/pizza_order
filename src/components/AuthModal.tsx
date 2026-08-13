@@ -65,7 +65,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
@@ -74,7 +74,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    const result = loginUser(loginEmail);
+    const result = await loginUser(loginEmail, loginPassword);
     if (result.success) {
       onAuthenticated?.();
       onClose();
@@ -83,7 +83,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignupError('');
 
@@ -96,14 +96,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       ? customAvatarInput.trim()
       : (selectedAvatarUrl || DEFAULT_USER_AVATAR);
 
-    const result = registerUser({
+    const result = await registerUser({
       name: signupName.trim(),
       email: signupEmail.trim(),
       role: signupRole,
       avatar: avatarToUse,
       phone: signupPhone.trim(),
       address: signupAddress.trim()
-    });
+    }, signupPassword);
 
     if (result.success) {
       onAuthenticated?.();
