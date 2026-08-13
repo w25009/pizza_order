@@ -19,9 +19,16 @@ import {
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onAuthenticated?: () => void;
+  requireAuthentication?: boolean;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  onAuthenticated,
+  requireAuthentication = false
+}) => {
   const { language, loginUser, registerUser } = useApp();
 
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
@@ -69,6 +76,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     const result = loginUser(loginEmail);
     if (result.success) {
+      onAuthenticated?.();
       onClose();
     } else {
       setLoginError(result.message || (language === 'ja' ? 'ログインに失敗しました。' : 'Login failed.'));
@@ -98,6 +106,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     });
 
     if (result.success) {
+      onAuthenticated?.();
       onClose();
     } else {
       setSignupError(result.message || (language === 'ja' ? '登録に失敗しました。' : 'Registration failed.'));
@@ -123,12 +132,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl text-[#8B735B] hover:text-[#3D2B1F] dark:hover:text-white hover:bg-[#E8E1D9] dark:hover:bg-[#3D2B1F] transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!requireAuthentication && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl text-[#8B735B] hover:text-[#3D2B1F] dark:hover:text-white hover:bg-[#E8E1D9] dark:hover:bg-[#3D2B1F] transition-colors"
+              aria-label="Close sign in"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Auth Tabs */}
@@ -500,4 +512,3 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     </div>
   );
 };
-
