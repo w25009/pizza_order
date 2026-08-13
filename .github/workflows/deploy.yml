@@ -32,5 +32,10 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      # GitHub is also completing one legacy Pages/Jekyll job for this
+      # repository. Let it finish first so this built Vite artifact is the
+      # final deployment served at the public URL.
+      - name: Wait for legacy Pages job
+        run: sleep 45
       - id: deployment
         uses: actions/deploy-pages@v4
