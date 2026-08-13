@@ -27,15 +27,15 @@ interface AppContextType {
   
   // Pizza CRUD
   pizzas: Pizza[];
-  addPizza: (pizza: Omit<Pizza, 'id'>) => void;
-  updatePizza: (id: string, updated: Partial<Pizza>) => void;
-  deletePizza: (id: string) => void;
-  togglePizzaStock: (id: string) => void;
+  addPizza: (pizza: Omit<Pizza, 'id'>) => Promise<void>;
+  updatePizza: (id: string, updated: Partial<Pizza>) => Promise<void>;
+  deletePizza: (id: string) => Promise<void>;
+  togglePizzaStock: (id: string) => Promise<void>;
   
   // Orders & Realtime
   orders: Order[];
-  createOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>) => Order;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  createOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>) => Promise<Order>;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   cancelOrder: (orderId: string) => void;
   deleteOrder: (orderId: string) => void;
   clearOrderHistory: (customerId?: string) => void;
@@ -194,45 +194,140 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // 4. Pizza Menu (CRUD State)
-  const [pizzas, setPizzas] = useState<Pizza[]>(() => {
-    const saved = localStorage.getItem('pizzeria_menu');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return INITIAL_PIZZAS;
-  });
+  const [pizzas, setPizzas] = useState<Pizza[]>(INITIAL_PIZZAS);
 
   useEffect(() => {
-    localStorage.setItem('pizzeria_menu', JSON.stringify(pizzas));
-  }, [pizzas]);
+  const loadPizzasFromSupabase = async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
 
-  const addPizza = (pizzaData: Omit<Pizza, 'id'>) => {
-    const newPizza: Pizza = {
-      ...pizzaData,
-      id: 'pizza-' + Date.now()
-    };
-    setPizzas((prev) => [newPizza, ...prev]);
+    const { data, error } = await supabase
+      .from('pizzas')
+      .select('*')
+      .order('id');
+
+    if (error) {
+      console.error('Failed to load pizzas from Supabase:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      const loadedPizzas = data.map((row) => row.data as Pizza);
+      setPizzas(loadedPizzas);
+    }
   };
 
-  const updatePizza = (id: string, updated: Partial<Pizza>) => {
-    setPizzas((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updated } : p))
-    );
+  loadPizzasFromSupabase();
+}, []);
+
+
+
+  // useEffect(() => {
+  //   localStorage.setItem('pizzeria_menu', JSON.stringify(pizzas));
+  // }, [pizzas]);
+
+  const addPizza = async (pizzaData: Omit<Pizza, 'id'>) => {
+  const newPizza: Pizza = {
+    ...pizzaData,
+    id: 'pizza-' + Date.now()
   };
 
-  const deletePizza = (id: string) => {
-    setPizzas((prev) => prev.filter((p) => p.id !== id));
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase.from('pizzas').insert({
+      id: newPizza.id,
+      data: newPizza,
+      updated_at: new Date().toISOString()
+    });
+
+    if (error) {
+      console.error('Failed to add pizza to Supabase:', error);
+      throw error;
+    }
+  }
+
+  setPizzas((prev) => [newPizza, ...prev]);
+};
+
+  const updatePizza = async (id: string, updated: Partial<Pizza>) => {
+  const currentPizza = pizzas.find((p) => p.id === id);
+
+  if (!currentPizza) {
+    return;
+  }
+
+  const updatedPizza: Pizza = {
+    ...currentPizza,
+    ...updated,
   };
 
-  const togglePizzaStock = (id: string) => {
-    setPizzas((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, inStock: !p.inStock } : p))
-    );
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('pizzas')
+      .update({
+        data: updatedPizza,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Failed to update pizza in Supabase:', error);
+      throw error;
+    }
+  }
+
+  setPizzas((prev) =>
+    prev.map((p) => (p.id === id ? updatedPizza : p))
+  );
+};
+
+  const deletePizza = async (id: string) => {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('pizzas')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Failed to delete pizza from Supabase:', error);
+      throw error;
+    }
+  }
+
+  setPizzas((prev) => prev.filter((p) => p.id !== id));
+};
+
+  const togglePizzaStock = async (id: string) => {
+  const currentPizza = pizzas.find((p) => p.id === id);
+
+  if (!currentPizza) {
+    return;
+  }
+
+  const updatedPizza: Pizza = {
+    ...currentPizza,
+    inStock: !currentPizza.inStock
   };
+
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('pizzas')
+      .update({
+        data: updatedPizza,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Failed to update pizza stock in Supabase:', error);
+      throw error;
+    }
+  }
+
+  setPizzas((prev) =>
+    prev.map((p) => (p.id === id ? updatedPizza : p))
+  );
+};
 
   // 5. Orders & Real-time Broadcast
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -500,83 +595,142 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const createOrder = (
-    orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>
-  ): Order => {
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const newOrder: Order = {
-      ...orderData,
-      id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      orderNumber: `ROMA-${randomSuffix}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+const createOrder = async (
+  orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>
+): Promise<Order> => {
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
 
-    setOrders((prev) => {
-      if (prev.some((o) => o.id === newOrder.id)) return prev;
-      return [newOrder, ...prev];
-    });
-    broadcastMessage('NEW_ORDER', newOrder);
-    playOrderNotificationSound();
-    setLatestOrderAlert(newOrder);
+  const newOrder: Order = {
+    ...orderData,
+    id: `ord-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    orderNumber: `ROMA-${randomSuffix}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
 
-    const newOrderNotif: AppNotification = {
-      id: 'notif-' + Date.now(),
-      title: {
-        en: 'Order Placed Successfully!',
-        ja: 'ご注文を受け付けました！'
-      },
-      message: {
-        en: `Order #${newOrder.orderNumber} placed. Your pizza is queued in the kitchen.`,
-        ja: `注文番号 #${newOrder.orderNumber} を受け付けました。厨房で調理を開始します。`
-      },
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      read: false,
-      type: 'new_order',
-      orderId: newOrder.id
-    };
-    setNotifications((prev) => [newOrderNotif, ...prev]);
+  // Save the new order to Supabase
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('orders')
+      .insert({
+        id: newOrder.id,
+        customer_id: newOrder.customerId,
+        data: newOrder,
+        created_at: newOrder.createdAt,
+        updated_at: newOrder.updatedAt
+      });
 
-    // Update customer loyalty points
-    if (currentUser.role === 'customer') {
-      const earnedPoints = Math.floor(newOrder.totalAmount);
-      const updatedUser = {
-        ...currentUser,
-        loyaltyPoints: currentUser.loyaltyPoints + earnedPoints
-      };
-      setCurrentUser(updatedUser);
-      localStorage.setItem('pizzeria_user', JSON.stringify(updatedUser));
+    if (error) {
+      console.error('Failed to create order in Supabase:', error);
+      throw error;
+    }
+  }
+
+  // Update React state
+  setOrders((prev) => {
+    if (prev.some((o) => o.id === newOrder.id)) {
+      return prev;
     }
 
-    return newOrder;
+    return [newOrder, ...prev];
+  });
+
+  broadcastMessage('NEW_ORDER', newOrder);
+  playOrderNotificationSound();
+  setLatestOrderAlert(newOrder);
+
+  const newOrderNotif: AppNotification = {
+    id: 'notif-' + Date.now(),
+    title: {
+      en: 'Order Placed Successfully!',
+      ja: 'ご注文を受け付けました！'
+    },
+    message: {
+      en: `Order #${newOrder.orderNumber} placed. Your pizza is queued in the kitchen.`,
+      ja: `注文番号 #${newOrder.orderNumber} を受け付けました。厨房で調理を開始します。`
+    },
+    timestamp: new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    }),
+    read: false,
+    type: 'new_order',
+    orderId: newOrder.id
   };
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    let targetNum = '';
-    setOrders((prev) =>
-      prev.map((o) => {
-        if (o.id === orderId) {
-          targetNum = o.orderNumber;
-          return { ...o, status, updatedAt: new Date().toISOString() };
-        }
-        return o;
+  setNotifications((prev) => [newOrderNotif, ...prev]);
+
+  // Customer loyalty points
+  if (currentUser.role === 'customer') {
+    const earnedPoints = Math.floor(newOrder.totalAmount);
+
+    const updatedUser = {
+      ...currentUser,
+      loyaltyPoints: currentUser.loyaltyPoints + earnedPoints
+    };
+
+    setCurrentUser(updatedUser);
+    localStorage.setItem('pizzeria_user', JSON.stringify(updatedUser));
+  }
+
+  return newOrder;
+};
+
+  const updateOrderStatus = async (
+  orderId: string,
+  status: OrderStatus
+): Promise<void> => {
+  const currentOrder = orders.find((o) => o.id === orderId);
+
+  if (!currentOrder) {
+    return;
+  }
+
+  const updatedOrder: Order = {
+    ...currentOrder,
+    status,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        data: updatedOrder,
+        updated_at: updatedOrder.updatedAt
       })
-    );
-    broadcastMessage('STATUS_CHANGE', { orderId, status });
+      .eq('id', orderId);
 
-    const statusNotif = createStatusNotification(targetNum || 'ROMA-ORDER', status, orderId);
-    setNotifications((prev) => [statusNotif, ...prev]);
+    if (error) {
+      console.error('Failed to update order status in Supabase:', error);
+      throw error;
+    }
+  }
 
-    setLatestCustomerStatusAlert({
-      id: 'csa-' + Date.now(),
-      orderId,
-      orderNumber: targetNum || 'ROMA-ORDER',
-      status,
-      timestamp: new Date().toLocaleTimeString()
-    });
-    playOrderNotificationSound();
-  };
+  setOrders((prev) =>
+    prev.map((o) => (o.id === orderId ? updatedOrder : o))
+  );
 
+  broadcastMessage('STATUS_CHANGE', { orderId, status });
+
+  const statusNotif = createStatusNotification(
+    updatedOrder.orderNumber || 'ROMA-ORDER',
+    status,
+    orderId
+  );
+
+  setNotifications((prev) => [statusNotif, ...prev]);
+
+  setLatestCustomerStatusAlert({
+    id: 'csa-' + Date.now(),
+    orderId,
+    orderNumber: updatedOrder.orderNumber || 'ROMA-ORDER',
+    status,
+    timestamp: new Date().toLocaleTimeString()
+  });
+
+  playOrderNotificationSound();
+};
   // Global background auto-progression for active orders
   useEffect(() => {
     const activeOrders = orders.filter(
@@ -627,21 +781,51 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // 6. Cart state
-  const [cart, setCart] = useState<OrderItem[]>(() => {
-    const saved = localStorage.getItem('pizzeria_cart');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return [];
-  });
+  const getCartStorageKey = (userId: string) => {
+  return `pizzeria_cart_${userId}`;
+};
 
-  useEffect(() => {
-    localStorage.setItem('pizzeria_cart', JSON.stringify(cart));
-  }, [cart]);
+const [cart, setCart] = useState<OrderItem[]>(() => {
+  const saved = localStorage.getItem(
+    getCartStorageKey(currentUser.id)
+  );
+
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  return [];
+});
+
+// Change cart when the logged-in user changes
+useEffect(() => {
+  const saved = localStorage.getItem(
+    getCartStorageKey(currentUser.id)
+  );
+
+  if (saved) {
+    try {
+      setCart(JSON.parse(saved));
+    } catch (e) {
+      console.error(e);
+      setCart([]);
+    }
+  } else {
+    setCart([]);
+  }
+}, [currentUser.id]);
+
+// Save cart separately for each user
+useEffect(() => {
+  localStorage.setItem(
+    getCartStorageKey(currentUser.id),
+    JSON.stringify(cart)
+  );
+}, [cart, currentUser.id]);
 
   const addToCart = (item: Omit<OrderItem, 'id'>) => {
     const newItem: OrderItem = {

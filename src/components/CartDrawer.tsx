@@ -68,8 +68,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     setErrorMessage(null);
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const order = createOrder({
+    setTimeout(async() => {
+      const order =await createOrder({
         customerId: currentUser.id,
         customerName: currentUser.name,
         customerPhone: phone || '090-0000-0000',
