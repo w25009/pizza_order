@@ -22,9 +22,9 @@ function AppContent() {
 
   // Do not treat the old demo-user localStorage entry as a signed-in session.
   // A visitor must explicitly sign in or create an account before seeing orders.
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => localStorage.getItem('pizzeria_authenticated') === 'true'
-  );
+  // const [isAuthenticated, setIsAuthenticated] = useState(
+  //   () => localStorage.getItem('pizzeria_authenticated') === 'true'
+  // );
 
   const [activeTab, setActiveTab] = useState<
     'menu' | 'orders' | 'dashboard' | 'inventory' | 'profile'
@@ -41,23 +41,23 @@ function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
 
-  const completeAuthentication = () => {
-    localStorage.setItem('pizzeria_authenticated', 'true');
-    setIsAuthenticated(true);
-    setIsAuthOpen(false);
-  };
+  // const completeAuthentication = () => {
+  //   localStorage.setItem('pizzeria_authenticated', 'true');
+  //   setIsAuthenticated(true);
+  //   setIsAuthOpen(false);
+  // };
   
 
-  if (!isAuthenticated) {
-  return (
-    <AuthModal
-      isOpen={true}
-      onClose={() => undefined}
-      onAuthenticated={completeAuthentication}
-      requireAuthentication={true}
-    />
-  );
-}
+//   if (!isAuthenticated) {
+//   return (
+//     <AuthModal
+//       isOpen={true}
+//       onClose={() => undefined}
+//       onAuthenticated={completeAuthentication}
+//       requireAuthentication={true}
+//     />
+//   );
+// }
 
   // Filtered Pizzas
   const filteredPizzas = pizzas.filter((pizza) => {
@@ -227,7 +227,7 @@ function AppContent() {
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
-        onAuthenticated={completeAuthentication}
+        onAuthenticated={()=>setIsAuthOpen(false)} 
       />
 
       <NewOrderAlertBanner onViewOrder={() => setActiveTab('dashboard')} />

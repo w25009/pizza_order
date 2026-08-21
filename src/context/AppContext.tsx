@@ -608,25 +608,7 @@ const createOrder = async (
     updatedAt: new Date().toISOString()
   };
 
-  // Save the new order to Supabase
-  if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase
-      .from('orders')
-      .insert({
-        id: newOrder.id,
-        customer_id: newOrder.customerId,
-        data: newOrder,
-        created_at: newOrder.createdAt,
-        updated_at: newOrder.updatedAt
-      });
-
-    if (error) {
-      console.error('Failed to create order in Supabase:', error);
-      throw error;
-    }
-  }
-
-  // Update React state
+  // Store order locally
   setOrders((prev) => {
     if (prev.some((o) => o.id === newOrder.id)) {
       return prev;
@@ -635,10 +617,16 @@ const createOrder = async (
     return [newOrder, ...prev];
   });
 
+  // Notify other tabs / staff dashboard
   broadcastMessage('NEW_ORDER', newOrder);
+
+  // Play notification sound
   playOrderNotificationSound();
+
+  // Show latest order alert
   setLatestOrderAlert(newOrder);
 
+  // Create notification
   const newOrderNotif: AppNotification = {
     id: 'notif-' + Date.now(),
     title: {
@@ -660,22 +648,10 @@ const createOrder = async (
 
   setNotifications((prev) => [newOrderNotif, ...prev]);
 
-  // Customer loyalty points
-  if (currentUser.role === 'customer') {
-    const earnedPoints = Math.floor(newOrder.totalAmount);
-
-    const updatedUser = {
-      ...currentUser,
-      loyaltyPoints: currentUser.loyaltyPoints + earnedPoints
-    };
-
-    setCurrentUser(updatedUser);
-    localStorage.setItem('pizzeria_user', JSON.stringify(updatedUser));
-  }
-
   return newOrder;
 };
 
+ 
   const updateOrderStatus = async (
   orderId: string,
   status: OrderStatus

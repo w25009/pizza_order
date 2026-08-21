@@ -9,7 +9,6 @@ import {
   Plus,
   Minus,
   ShoppingBag,
-  CreditCard,
   Truck,
   Store,
   MapPin,
@@ -42,7 +41,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [orderType, setOrderType] = useState<OrderType>('delivery');
   const [address, setAddress] = useState(currentUser.address || '');
   const [phone, setPhone] = useState(currentUser.phone || '');
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash' | 'mobile_pay'>('card');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_pay'>('cash');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -258,15 +257,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {/* Payment Method */}
                   <div>
                     <label className="font-bold text-[#3D2B1F] dark:text-[#F5E6D3] mb-1 flex items-center space-x-1">
-                      <CreditCard className="w-3.5 h-3.5 text-[#E67E22]" />
+                      {/* <CreditCard className="w-3.5 h-3.5 text-[#E67E22]" /> */}
                       <span>{getTranslation(language, 'paymentMethod')}</span>
                     </label>
                     <select
                       value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value as 'card' | 'cash' | 'mobile_pay')}
+                      onChange={(e) => setPaymentMethod(e.target.value as  'cash' | 'mobile_pay')}
                       className="w-full px-3 py-2 rounded-xl border border-[#E8E1D9] dark:border-[#443228] bg-[#FAF7F2] dark:bg-[#1F1510] text-[#3D2B1F] dark:text-white focus:ring-2 focus:ring-[#E67E22] outline-hidden"
                     >
-                      <option value="card">{getTranslation(language, 'card')}</option>
+                      
                       <option value="cash">{getTranslation(language, 'cash')}</option>
                       <option value="mobile_pay">{getTranslation(language, 'mobilePay')}</option>
                     </select>
