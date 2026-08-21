@@ -347,7 +347,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.error(e);
       }
     }
-    return INITIAL_ORDERS;
+    return [];
   });
 
   useEffect(() => {
